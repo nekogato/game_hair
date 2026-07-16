@@ -48,6 +48,25 @@
       box-shadow: 0 18px 45px rgba(24, 48, 70, 0.16);
     }
 
+    #ui.is-hidden {
+      display: none;
+    }
+
+    #uiToggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 11;
+      width: auto;
+      min-width: 108px;
+      flex: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(24, 48, 70, 0.13);
+    }
+
     #ui h1 {
       margin: 0 0 6px;
       font-size: 18px;
@@ -149,6 +168,10 @@
 </head>
 
 <body>
+  <button id="uiToggle" type="button" aria-controls="ui" aria-expanded="true">
+    Hide controls
+  </button>
+
   <div id="ui">
     <h1>Erling Haaland Hair Simulator</h1>
     <p>
@@ -1557,6 +1580,15 @@
             strand.reset();
           }
         });
+
+      const uiPanel = document.getElementById("ui");
+      const uiToggle = document.getElementById("uiToggle");
+
+      uiToggle.addEventListener("click", () => {
+        const isHidden = uiPanel.classList.toggle("is-hidden");
+        uiToggle.textContent = isHidden ? "Show controls" : "Hide controls";
+        uiToggle.setAttribute("aria-expanded", String(!isHidden));
+      });
 
       window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
