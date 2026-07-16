@@ -236,8 +236,8 @@
 
     <div class="control">
       <label for="hairColor">Hair color</label>
-      <input id="hairColor" type="color" value="#896832" />
-      <output id="hairColorValue">#896832</output>
+      <input id="hairColor" type="color" value="#BB7F43" />
+      <output id="hairColorValue">#BB7F43</output>
     </div>
 
     <div class="buttons">
@@ -329,7 +329,9 @@
       );
       skyDome.renderOrder = -100;
       scene.add(skyDome);
-      scene.fog = new THREE.Fog(0xffffff, 9, 18);
+      // Keep foreground colors vivid. The sky texture already provides the
+      // white atmospheric horizon, so scene fog would only wash materials out.
+      scene.fog = null;
 
       const camera = new THREE.PerspectiveCamera(
         38,
@@ -347,6 +349,8 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = false;
       renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.NoToneMapping;
+      renderer.toneMappingExposure = 1;
       document.body.appendChild(renderer.domElement);
 
       const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -524,7 +528,7 @@
       }
 
       const hairMaterial = new THREE.MeshBasicMaterial({
-        color: 0x896832,
+        color: 0xBB7F43,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.98
@@ -1274,9 +1278,13 @@
                 }
 
                 const basic = new THREE.MeshBasicMaterial({
-                  color: source && source.color
-                    ? source.color.clone()
-                    : new THREE.Color(0xffffff),
+                  // A material color multiplies its texture. Use white for
+                  // mapped materials to preserve the texture's original color.
+                  color: source && source.map
+                    ? new THREE.Color(0xffffff)
+                    : source && source.color
+                      ? source.color.clone()
+                      : new THREE.Color(0xffffff),
                   map: source ? source.map : null,
                   alphaMap: source ? source.alphaMap : null,
                   transparent: source ? source.transparent : false,
