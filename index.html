@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Erling Haaland Simulator</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --panel: rgba(255, 255, 255, 0.78);
+      --border: rgba(0, 0, 0, 0.14);
+      --text: #111318;
+      --muted: #4e5968;
+      --accent: #69c4f2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #ui {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      width: min(330px, calc(100vw - 32px));
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel);
+      color: var(--text);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 10;
+      box-shadow: 0 18px 45px rgba(24, 48, 70, 0.16);
+    }
+
+    #ui h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    #ui p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .control {
+      display: grid;
+      grid-template-columns: 108px 1fr 48px;
+      align-items: center;
+      gap: 10px;
+      margin: 11px 0;
+    }
+
+    .control label {
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .control output {
+      text-align: right;
+      font-size: 12px;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 28px;
+      padding: 2px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.07);
+      cursor: pointer;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    #status {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size: 12px;
+      z-index: 10;
+    }
+
+    @media (max-width: 600px) {
+      #ui {
+        top: 10px;
+        left: 10px;
+        width: calc(100vw - 20px);
+        padding: 13px;
+      }
+
+      .control {
+        grid-template-columns: 96px 1fr 44px;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ui">
+    <h1>Erling Haaland Simulator</h1>
+    <p>
+      Drag to orbit. Scroll to zoom. The hair uses Verlet integration,
+      position constraints, bending stiffness and simple head/shoulder collision.
+    </p>
+
+    <div class="control">
+      <label for="wind">Wind strength</label>
+      <input id="wind" type="range" min="0" max="8" step="0.1" value="3.3" />
+      <output id="windValue">3.3</output>
+    </div>
+
+    <div class="control">
+      <label for="windAngle">Wind angle X</label>
+      <input id="windAngle" type="range" min="-45" max="45" step="1" value="0" />
+      <output id="windAngleValue">0°</output>
+    </div>
+
+    <div class="control">
+      <label for="windVerticalAngle">Wind angle Y</label>
+      <input id="windVerticalAngle" type="range" min="-30" max="30" step="1" value="0" />
+      <output id="windVerticalAngleValue">0°</output>
+    </div>
+
+    <div class="control">
+      <label for="gust">Gust amount</label>
+      <input id="gust" type="range" min="0" max="5" step="0.1" value="0" />
+      <output id="gustValue">0.0</output>
+    </div>
+
+    <div class="control">
+      <label for="turbulence">Turbulence</label>
+      <input id="turbulence" type="range" min="0" max="40" step="0.1" value="5.8" />
+      <output id="turbulenceValue">5.8</output>
+    </div>
+
+    <div class="control">
+      <label for="stiffness">Hair stiffness</label>
+      <input id="stiffness" type="range" min="0.05" max="1" step="0.01" value="0.28" />
+      <output id="stiffnessValue">0.28</output>
+    </div>
+
+    <div class="control">
+      <label for="damping">Damping</label>
+      <input id="damping" type="range" min="0.82" max="0.995" step="0.001" value="0.865" />
+      <output id="dampingValue">0.865</output>
+    </div>
+
+    <div class="control">
+      <label for="guideCount">Hair Count</label>
+      <input id="guideCount" type="range" min="36" max="720" step="12" value="252" />
+      <output id="guideCountValue">252</output>
+    </div>
+
+    <div class="control">
+      <label for="fiberCount">Fibers Count</label>
+      <input id="fiberCount" type="range" min="1" max="20" step="1" value="5" />
+      <output id="fiberCountValue">5</output>
+    </div>
+
+    <div class="control">
+      <label for="hairThickness">Hair thickness</label>
+      <input id="hairThickness" type="range" min="0.25" max="30" step="0.05" value="5.45" />
+      <output id="hairThicknessValue">5.45</output>
+    </div>
+
+    <div class="control">
+      <label for="hairLength">Hair length</label>
+      <input id="hairLength" type="range" min="0.2" max="2.5" step="0.05" value="0.85" />
+      <output id="hairLengthValue">0.85</output>
+    </div>
+
+    <div class="control">
+      <label for="rootLift">Root lift</label>
+      <input id="rootLift" type="range" min="0.1" max="3" step="0.1" value="0.5" />
+      <output id="rootLiftValue">0.5</output>
+    </div>
+
+    <div class="control">
+      <label for="hairlineHeight">Hairline height</label>
+      <input id="hairlineHeight" type="range" min="0" max="1" step="0.02" value="0.22" />
+      <output id="hairlineHeightValue">0.22</output>
+    </div>
+
+    <div class="control">
+      <label for="hairColor">Hair color</label>
+      <input id="hairColor" type="color" value="#896832" />
+      <output id="hairColorValue">#896832</output>
+    </div>
+
+    <div class="buttons">
+      <button id="resetButton">Reset hair</button>
+    </div>
+  </div>
+
+  <div id="status">1,260 visible ribbons · 252 physics guides · -- FPS</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const scene = new THREE.Scene();
+      const skyCanvas = document.createElement("canvas");
+      skyCanvas.width = 1024;
+      skyCanvas.height = 512;
+      const skyContext = skyCanvas.getContext("2d");
+      const skyGradient = skyContext.createLinearGradient(
+        0,
+        0,
+        0,
+        skyCanvas.height
+      );
+      skyGradient.addColorStop(0, "#b9ddf5");
+      skyGradient.addColorStop(0.48, "#eaf7ff");
+      skyGradient.addColorStop(0.78, "#ffffff");
+      skyGradient.addColorStop(1, "#ffffff");
+      skyContext.fillStyle = skyGradient;
+      skyContext.fillRect(0, 0, skyCanvas.width, skyCanvas.height);
+
+      function drawCloud(x, y, scale, opacity) {
+        skyContext.save();
+        skyContext.globalAlpha = opacity;
+        skyContext.filter = "blur(" + 7 * scale + "px)";
+        skyContext.fillStyle = "#ffffff";
+
+        const puffs = [
+          [-72, 12, 74, 28],
+          [-34, -5, 58, 38],
+          [8, -18, 70, 48],
+          [58, 2, 65, 34],
+          [90, 16, 55, 25],
+          [15, 18, 132, 31]
+        ];
+
+        for (const [offsetX, offsetY, radiusX, radiusY] of puffs) {
+          skyContext.beginPath();
+          skyContext.ellipse(
+            x + offsetX * scale,
+            y + offsetY * scale,
+            radiusX * scale,
+            radiusY * scale,
+            0,
+            0,
+            Math.PI * 2
+          );
+          skyContext.fill();
+        }
+        skyContext.restore();
+      }
+
+      drawCloud(130, 112, 0.72, 0.72);
+      drawCloud(410, 74, 0.48, 0.55);
+      drawCloud(720, 132, 0.82, 0.68);
+      drawCloud(945, 66, 0.44, 0.5);
+      drawCloud(275, 218, 0.4, 0.38);
+      drawCloud(875, 245, 0.5, 0.35);
+
+      const skyTexture = new THREE.CanvasTexture(skyCanvas);
+      skyTexture.encoding = THREE.sRGBEncoding;
+      scene.background = new THREE.Color(0xffffff);
+
+      // A world-space dome makes the clouds respond to camera rotation.
+      // scene.background textures are screen-aligned and appear stationary.
+      const skyDome = new THREE.Mesh(
+        new THREE.SphereGeometry(45, 64, 32),
+        new THREE.MeshBasicMaterial({
+          map: skyTexture,
+          side: THREE.BackSide,
+          depthWrite: false,
+          fog: false
+        })
+      );
+      skyDome.renderOrder = -100;
+      scene.add(skyDome);
+      scene.fog = new THREE.Fog(0xffffff, 9, 18);
+
+      const camera = new THREE.PerspectiveCamera(
+        38,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(4.8, 3.2, 7.2);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance"
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = false;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.target.set(0, 1.85, 0);
+      controls.minDistance = 4;
+      controls.maxDistance = 13;
+      controls.maxPolarAngle = Math.PI * 0.72;
+
+      function createGrassTexture() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#285c2b";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Deterministic pseudo-random grass flecks keep the texture stable.
+        let seed = 7183;
+        const random = () => {
+          seed = seed * 16807 % 2147483647;
+          return (seed - 1) / 2147483646;
+        };
+        const grassColors = ["#39743a", "#4d8744", "#1d4c24", "#6a994e"];
+
+        for (let i = 0; i < 9500; i++) {
+          const x = random() * canvas.width;
+          const y = random() * canvas.height;
+          const bladeLength = 1 + random() * 4;
+          context.strokeStyle = grassColors[
+            Math.floor(random() * grassColors.length)
+          ];
+          context.globalAlpha = 0.3 + random() * 0.55;
+          context.lineWidth = 0.45 + random() * 0.8;
+          context.beginPath();
+          context.moveTo(x, y);
+          context.lineTo(x + (random() - 0.5) * 2, y - bladeLength);
+          context.stroke();
+        }
+
+        context.globalAlpha = 1;
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.encoding = THREE.sRGBEncoding;
+        texture.anisotropy = Math.min(
+          8,
+          renderer.capabilities.getMaxAnisotropy()
+        );
+        return texture;
+      }
+
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(8, 96),
+        new THREE.MeshBasicMaterial({ map: createGrassTexture() })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = false;
+      scene.add(ground);
+
+      // World-space wind direction indicator. It begins in front of the
+      // character and points toward the back of the head.
+      const windArrow = new THREE.ArrowHelper(
+        new THREE.Vector3(0, 0, -1),
+        new THREE.Vector3(0, 4.65, 1.55),
+        2.2,
+        0x73d5ff,
+        0.38,
+        0.2
+      );
+      scene.add(windArrow);
+
+      const character = new THREE.Group();
+      scene.add(character);
+      let characterModel = null;
+      const scalpRaycaster = new THREE.Raycaster();
+      let headCollisionMap = null;
+
+      // These measurements are updated after the FBX is normalized.
+      const bodyFit = {
+        headCenter: new THREE.Vector3(0, 2.65, 0),
+        headRadius: new THREE.Vector3(0.73, 0.82, 0.71),
+        shoulderCenter: new THREE.Vector3(0, 1.72, 0),
+        shoulderRadius: new THREE.Vector3(1.05, 0.42, 0.53),
+        torsoCenter: new THREE.Vector3(0, 1.05, 0),
+        torsoRadius: new THREE.Vector3(0.82, 1.02, 0.48)
+      };
+
+      function ellipsoidSurfaceRadius(direction) {
+        const radii = bodyFit.headRadius;
+        return 1 / Math.sqrt(
+          direction.x * direction.x / (radii.x * radii.x) +
+          direction.y * direction.y / (radii.y * radii.y) +
+          direction.z * direction.z / (radii.z * radii.z)
+        );
+      }
+
+      function buildHeadCollisionMap(model) {
+        const azimuthSteps = 40;
+        const elevationSteps = 22;
+        const radii = new Float32Array(azimuthSteps * elevationSteps);
+        const maxHeadRadius = Math.max(
+          bodyFit.headRadius.x,
+          bodyFit.headRadius.y,
+          bodyFit.headRadius.z
+        );
+        const rayDistance = maxHeadRadius * 3.2;
+        const direction = new THREE.Vector3();
+
+        for (let elevationIndex = 0;
+          elevationIndex < elevationSteps;
+          elevationIndex++) {
+          const elevation = -Math.PI / 2 +
+            elevationIndex / (elevationSteps - 1) * Math.PI;
+          const horizontal = Math.cos(elevation);
+
+          for (let azimuthIndex = 0;
+            azimuthIndex < azimuthSteps;
+            azimuthIndex++) {
+            const azimuth =
+              azimuthIndex / azimuthSteps * Math.PI * 2 - Math.PI;
+            direction.set(
+              horizontal * Math.cos(azimuth),
+              Math.sin(elevation),
+              horizontal * Math.sin(azimuth)
+            );
+
+            const fallbackRadius = ellipsoidSurfaceRadius(direction);
+            const origin = bodyFit.headCenter
+              .clone()
+              .addScaledVector(direction, rayDistance);
+            scalpRaycaster.set(origin, direction.clone().negate());
+
+            const hit = scalpRaycaster
+              .intersectObject(model, true)
+              .find((candidate) => {
+                const fromHead = candidate.point.distanceTo(bodyFit.headCenter);
+                return fromHead < maxHeadRadius * 1.75 &&
+                  candidate.point.y >
+                    bodyFit.headCenter.y - bodyFit.headRadius.y * 1.32;
+              });
+
+            radii[elevationIndex * azimuthSteps + azimuthIndex] = hit
+              ? hit.point.distanceTo(bodyFit.headCenter)
+              : fallbackRadius;
+          }
+        }
+
+        headCollisionMap = { azimuthSteps, elevationSteps, radii };
+      }
+
+      function sampledHeadRadius(direction) {
+        if (!headCollisionMap) return ellipsoidSurfaceRadius(direction);
+
+        const azimuth = Math.atan2(direction.z, direction.x);
+        const elevation = Math.asin(
+          THREE.MathUtils.clamp(direction.y, -1, 1)
+        );
+        const azimuthPosition =
+          (azimuth + Math.PI) / (Math.PI * 2) *
+          headCollisionMap.azimuthSteps;
+        const elevationPosition =
+          (elevation + Math.PI / 2) / Math.PI *
+          (headCollisionMap.elevationSteps - 1);
+        const azimuthIndex =
+          Math.round(azimuthPosition) % headCollisionMap.azimuthSteps;
+        const elevationIndex = THREE.MathUtils.clamp(
+          Math.round(elevationPosition),
+          0,
+          headCollisionMap.elevationSteps - 1
+        );
+
+        return headCollisionMap.radii[
+          elevationIndex * headCollisionMap.azimuthSteps + azimuthIndex
+        ];
+      }
+
+      const hairMaterial = new THREE.MeshBasicMaterial({
+        color: 0x896832,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.98
+      });
+
+      const hairHighlightMaterial = new THREE.MeshBasicMaterial({
+        color: 0xb99a62,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7
+      });
+
+      const params = {
+        windStrength: 3.3,
+        gust: 0,
+        turbulence: 5.8,
+        stiffness: 0.28,
+        damping: 0.865,
+        hairThickness: 5.45,
+        hairLength: 0.85,
+        rootLift: 0.5,
+        hairlineHeight: 0.22,
+        windAngle: 0,
+        windVerticalAngle: 0
+      };
+
+      let currentGuideCount = 252;
+      let currentFibersPerGuide = 5;
+      const POINTS_PER_STRAND = 17;
+      const BASE_SEGMENT_LENGTH = 0.27;
+      const GRAVITY = new THREE.Vector3(0, -5.8, 0);
+      const FIXED_DT = 1 / 60;
+      const MAX_SUBSTEPS = 3;
+      const CONSTRAINT_ITERATIONS = 7;
+
+      function segmentLength() {
+        return BASE_SEGMENT_LENGTH * params.hairLength;
+      }
+
+      class HairPoint {
+        constructor(position, pinned = false) {
+          this.position = position.clone();
+          this.previous = position.clone();
+          this.acceleration = new THREE.Vector3();
+          this.pinned = pinned;
+          this.pinPosition = position.clone();
+        }
+      }
+
+      class HairStrand {
+        constructor(root, direction, width, seed, material, fibersPerGuide) {
+          this.seed = seed;
+          this.width = width;
+          this.fibersPerGuide = fibersPerGuide;
+          this.points = [];
+          this.root = root.clone();
+          this.rootNormal = direction.clone().normalize();
+          this.rootGuideTargets = [];
+          const initialSegmentLength = segmentLength();
+
+          for (let i = 0; i < POINTS_PER_STRAND; i++) {
+            const t = i / (POINTS_PER_STRAND - 1);
+            const initial = root
+              .clone()
+              .addScaledVector(direction, initialSegmentLength * i)
+              .add(new THREE.Vector3(
+                Math.sin(seed * 4.1 + t * 2.4) * 0.025 * t,
+                -0.025 * i * i / POINTS_PER_STRAND,
+                Math.cos(seed * 3.7 + t * 1.8) * 0.03 * t
+              ));
+
+            this.points.push(new HairPoint(initial, i === 0));
+          }
+
+          // Each physics guide renders 20 nearby ribbon fibers.
+          // This creates 20x more visible hair without simulating 20x more points.
+          const verticesPerFiber = POINTS_PER_STRAND * 2;
+          const vertexCount = verticesPerFiber * this.fibersPerGuide;
+          const positions = new Float32Array(vertexCount * 3);
+          const uvs = new Float32Array(vertexCount * 2);
+          const indices = [];
+
+          this.fiberData = [];
+
+          for (let fiber = 0; fiber < this.fibersPerGuide; fiber++) {
+            const fiberSeed = seed * 91.7 + fiber * 12.9898;
+            const angle = (fiber / this.fibersPerGuide) * Math.PI * 2 +
+              Math.sin(fiberSeed) * 0.35;
+            const radius = 0.012 + (fiber % 5) * 0.0045;
+            const lengthScale = 0.94 + ((fiber * 7) % 11) / 100;
+            const phase = fiberSeed * 0.43;
+
+            this.fiberData.push({
+              angle,
+              radius,
+              lengthScale,
+              phase
+            });
+
+            const vertexOffset = fiber * verticesPerFiber;
+
+            for (let i = 0; i < POINTS_PER_STRAND; i++) {
+              const v = i / (POINTS_PER_STRAND - 1);
+              const leftVertex = vertexOffset + i * 2;
+              const rightVertex = leftVertex + 1;
+
+              uvs[leftVertex * 2] = 0;
+              uvs[leftVertex * 2 + 1] = v;
+              uvs[rightVertex * 2] = 1;
+              uvs[rightVertex * 2 + 1] = v;
+
+              if (i < POINTS_PER_STRAND - 1) {
+                const a = leftVertex;
+                const b = rightVertex;
+                const c = leftVertex + 2;
+                const d = rightVertex + 2;
+                indices.push(a, b, c, b, d, c);
+              }
+            }
+          }
+
+          this.geometry = new THREE.BufferGeometry();
+          this.geometry.setAttribute(
+            "position",
+            new THREE.BufferAttribute(positions, 3)
+          );
+          this.geometry.setAttribute(
+            "uv",
+            new THREE.BufferAttribute(uvs, 2)
+          );
+          this.geometry.setIndex(indices);
+          this.geometry.computeVertexNormals();
+
+          this.mesh = new THREE.Mesh(this.geometry, material);
+          this.mesh.castShadow = true;
+          this.mesh.frustumCulled = false;
+          scene.add(this.mesh);
+
+          this.reset();
+        }
+
+        reset() {
+          const currentSegmentLength = segmentLength();
+          const back = new THREE.Vector3(0, 0, -1);
+          const up = new THREE.Vector3(0, 1, 0);
+          const styledPointCount = Math.max(1, Math.ceil(params.rootLift));
+          let previousStyledPosition = this.root.clone();
+          this.rootGuideTargets.length = 0;
+
+          for (let i = 0; i < this.points.length; i++) {
+            const point = this.points[i];
+
+            if (i === 0) {
+              point.position.copy(this.root);
+            } else {
+              let styledDirection;
+              if (i <= styledPointCount) {
+                const styleProgress = THREE.MathUtils.clamp(
+                  i / params.rootLift,
+                  0,
+                  1
+                );
+                styledDirection = this.rootNormal
+                  .clone()
+                  .multiplyScalar((1 - styleProgress) * 0.85)
+                  .addScaledVector(up, 0.72 - styleProgress * 0.18)
+                  .addScaledVector(back, 0.2 + styleProgress * 0.9)
+                  .normalize();
+              } else {
+                styledDirection = new THREE.Vector3(0, -1, -0.22)
+                  .normalize();
+              }
+
+              point.position
+                .copy(previousStyledPosition)
+                .addScaledVector(styledDirection, currentSegmentLength);
+            }
+
+            previousStyledPosition.copy(point.position);
+            point.previous.copy(point.position);
+            point.acceleration.set(0, 0, 0);
+            if (point.pinned) point.pinPosition.copy(this.root);
+            if (i > 0 && i <= styledPointCount) {
+              this.rootGuideTargets[i] = point.position.clone();
+            }
+          }
+        }
+
+        integrate(dt, time) {
+          const dtSq = dt * dt;
+
+          for (let i = 1; i < this.points.length; i++) {
+            const point = this.points[i];
+            const velocity = point.position
+              .clone()
+              .sub(point.previous)
+              .multiplyScalar(params.damping);
+
+            const t = i / (this.points.length - 1);
+            const phase = this.seed * 11.7 + i * 0.53;
+
+            const gust =
+              Math.sin(time * 1.25 + phase) * 0.55 +
+              Math.sin(time * 2.35 + phase * 0.63) * 0.25 +
+              Math.sin(time * 0.53 + phase * 1.4) * 0.2;
+
+            const swirlX =
+              Math.sin(time * 2.1 + point.position.y * 2.8 + phase);
+            const swirlY =
+              Math.sin(time * 1.6 + point.position.z * 3.2 + phase * 0.7);
+            const swirlZ =
+              Math.cos(time * 1.85 + point.position.x * 3.0 + phase * 1.2);
+
+            // -90 degrees is the model's front-to-back direction (+Z to -Z).
+            // The UI only supplies a small sideways offset from that direction.
+            const windAngle = THREE.MathUtils.degToRad(-90 + params.windAngle);
+            const verticalAngle = THREE.MathUtils.degToRad(
+              params.windVerticalAngle
+            );
+            const windForce = Math.max(
+              0,
+              params.windStrength + params.gust * gust
+            );
+            const forwardDirection = new THREE.Vector3(
+              Math.cos(windAngle) * Math.cos(verticalAngle),
+              Math.sin(verticalAngle),
+              Math.sin(windAngle) * Math.cos(verticalAngle)
+            );
+            const sidewaysDirection = new THREE.Vector3(
+              -Math.sin(windAngle),
+              0,
+              Math.cos(windAngle)
+            ).normalize();
+            const verticalDirection = new THREE.Vector3()
+              .crossVectors(sidewaysDirection, forwardDirection)
+              .normalize();
+
+            // Turbulence is expressed in the selected wind's local axes.
+            // It has no permanent left/right direction: both components
+            // oscillate around zero and rotate with yaw and vertical angle.
+            const sidewaysTurbulence =
+              params.turbulence *
+              (0.65 * swirlZ + 0.2 * swirlX);
+            const verticalTurbulence =
+              params.turbulence *
+              (0.32 * swirlY + 0.12 * swirlX);
+            const windVelocity = forwardDirection
+              .clone()
+              .multiplyScalar(windForce)
+              .addScaledVector(sidewaysDirection, sidewaysTurbulence)
+              .addScaledVector(verticalDirection, verticalTurbulence);
+
+            // Turbulence may move sideways, but never reverse the wind into a
+            // back-to-front flow toward the face.
+            const minimumBackwardSpeed =
+              Math.abs(forwardDirection.z) * windForce * 0.15;
+            windVelocity.z = Math.min(
+              windVelocity.z,
+              -minimumBackwardSpeed
+            );
+
+            const pointVelocity = velocity.clone().divideScalar(dt);
+            const relativeWind = windVelocity.sub(pointVelocity.multiplyScalar(0.09));
+
+            const drag = relativeWind.multiplyScalar(0.65 + t * 0.9);
+            const flutter = sidewaysDirection
+              .clone()
+              .multiplyScalar(Math.sin(time * 5.4 + phase) * 0.11)
+              .addScaledVector(
+                verticalDirection,
+                Math.cos(time * 4.7 + phase * 0.8) * 0.08
+              )
+              .addScaledVector(
+                forwardDirection,
+                Math.sin(time * 6.1 + phase * 1.3) * 0.05
+              )
+              .multiplyScalar(params.turbulence * t);
+
+            point.acceleration
+              .copy(GRAVITY)
+              .add(drag)
+              .add(flutter);
+
+            const current = point.position.clone();
+            point.position
+              .add(velocity)
+              .addScaledVector(point.acceleration, dtSq);
+            point.previous.copy(current);
+          }
+        }
+
+        satisfyConstraints() {
+          this.points[0].position.copy(this.points[0].pinPosition);
+          const currentSegmentLength = segmentLength();
+
+          for (let i = 0; i < this.points.length - 1; i++) {
+            const p1 = this.points[i];
+            const p2 = this.points[i + 1];
+
+            const delta = p2.position.clone().sub(p1.position);
+            const distance = Math.max(delta.length(), 0.0001);
+            const difference = (distance - currentSegmentLength) / distance;
+            const correction = delta.multiplyScalar(difference);
+
+            if (p1.pinned) {
+              p2.position.sub(correction);
+            } else {
+              p1.position.addScaledVector(correction, 0.5);
+              p2.position.addScaledVector(correction, -0.5);
+            }
+          }
+
+          // Bending constraint: resist very sharp direction changes.
+          for (let i = 0; i < this.points.length - 2; i++) {
+            const a = this.points[i];
+            const c = this.points[i + 2];
+            const targetDistance = currentSegmentLength * 1.92;
+
+            const delta = c.position.clone().sub(a.position);
+            const distance = Math.max(delta.length(), 0.0001);
+            const difference = (distance - targetDistance) / distance;
+            const correction = delta.multiplyScalar(
+              difference * params.stiffness * 0.28
+            );
+
+            if (a.pinned) {
+              c.position.sub(correction);
+            } else {
+              a.position.addScaledVector(correction, 0.5);
+              c.position.addScaledVector(correction, -0.5);
+            }
+          }
+
+          // Preserve the styled root arc: first outward/up, then backward.
+          // The guide is compliant, so wind can still move it naturally.
+          for (let i = 1; i < this.rootGuideTargets.length; i++) {
+            if (!this.rootGuideTargets[i]) continue;
+            this.points[i].position.lerp(
+              this.rootGuideTargets[i],
+              0.18 + params.stiffness * 0.28
+            );
+          }
+
+          this.collide();
+          this.points[0].position.copy(this.points[0].pinPosition);
+        }
+
+        collide() {
+          for (let i = 1; i < this.points.length; i++) {
+            const hairPoint = this.points[i];
+            const p = hairPoint.position;
+
+            // Collision against a radial surface map sampled from the FBX.
+            // This includes the forehead, face and ears that a simple
+            // ellipsoid cannot represent accurately.
+            const headCenter = bodyFit.headCenter;
+            const local = p.clone().sub(headCenter);
+            const headDistance = local.length();
+            const headDirection = headDistance > 0.0001
+              ? local.clone().divideScalar(headDistance)
+              : new THREE.Vector3(0, 1, 0);
+            const surfaceRadius = sampledHeadRadius(headDirection);
+            const distanceFromRoot = i / (this.points.length - 1);
+            const headSafetyDistance =
+              0.025 +
+              distanceFromRoot * 0.07 +
+              distanceFromRoot * Math.min(
+                0.18,
+                Math.max(0, params.hairThickness - 1) * 0.006
+              );
+
+            if (headDistance < surfaceRadius + headSafetyDistance) {
+              const beforeCollision = p.clone();
+              p.copy(headCenter).addScaledVector(
+                headDirection,
+                surfaceRadius + headSafetyDistance
+              );
+
+              // Move the Verlet history by the same correction. Without this,
+              // stored inward velocity can pull the hair through again on the
+              // following frame.
+              hairPoint.previous.add(p.clone().sub(beforeCollision));
+            } else {
+              // Continuous collision check prevents a fast point jumping from
+              // one side of the head to the other between two frames.
+              const previousLocal = hairPoint.previous
+                .clone()
+                .sub(headCenter);
+              const travel = local.clone().sub(previousLocal);
+              const travelLengthSq = travel.lengthSq();
+
+              if (travelLengthSq > 0.000001) {
+                const closestT = THREE.MathUtils.clamp(
+                  -previousLocal.dot(travel) / travelLengthSq,
+                  0,
+                  1
+                );
+                const closest = previousLocal
+                  .clone()
+                  .addScaledVector(travel, closestT);
+                const closestDistance = closest.length();
+                const closestDirection = closestDistance > 0.0001
+                  ? closest.clone().divideScalar(closestDistance)
+                  : headDirection;
+                const closestSurface = sampledHeadRadius(closestDirection);
+
+                if (closestDistance < closestSurface + headSafetyDistance) {
+                  const entryDirection = previousLocal.lengthSq() > 0.0001
+                    ? previousLocal.normalize()
+                    : headDirection;
+                  const entrySurface = sampledHeadRadius(entryDirection);
+                  p.copy(headCenter).addScaledVector(
+                    entryDirection,
+                    entrySurface + headSafetyDistance
+                  );
+                  hairPoint.previous.copy(p);
+                }
+              }
+            }
+
+            // Shoulder collision approximated by an ellipsoid.
+            const shoulderCenter = bodyFit.shoulderCenter;
+            const sx = bodyFit.shoulderRadius.x;
+            const sy = bodyFit.shoulderRadius.y;
+            const sz = bodyFit.shoulderRadius.z;
+
+            const shoulderLocal = p.clone().sub(shoulderCenter);
+            const shoulderNormalized = new THREE.Vector3(
+              shoulderLocal.x / sx,
+              shoulderLocal.y / sy,
+              shoulderLocal.z / sz
+            );
+            const shoulderDistance = shoulderNormalized.length();
+
+            if (shoulderDistance < 1.02) {
+              shoulderNormalized.normalize();
+              p.copy(shoulderCenter).add(
+                new THREE.Vector3(
+                  shoulderNormalized.x * sx * 1.02,
+                  shoulderNormalized.y * sy * 1.02,
+                  shoulderNormalized.z * sz * 1.02
+                )
+              );
+            }
+
+            // Torso collision.
+            const torsoCenter = bodyFit.torsoCenter;
+            const tx = bodyFit.torsoRadius.x;
+            const ty = bodyFit.torsoRadius.y;
+            const tz = bodyFit.torsoRadius.z;
+
+            const torsoLocal = p.clone().sub(torsoCenter);
+            const torsoNormalized = new THREE.Vector3(
+              torsoLocal.x / tx,
+              torsoLocal.y / ty,
+              torsoLocal.z / tz
+            );
+            const torsoDistance = torsoNormalized.length();
+
+            if (torsoDistance < 1.01) {
+              torsoNormalized.normalize();
+              p.copy(torsoCenter).add(
+                new THREE.Vector3(
+                  torsoNormalized.x * tx * 1.01,
+                  torsoNormalized.y * ty * 1.01,
+                  torsoNormalized.z * tz * 1.01
+                )
+              );
+            }
+
+            if (p.y < 0.04) {
+              p.y = 0.04;
+            }
+          }
+        }
+
+        updateGeometry() {
+          const positionAttribute = this.geometry.attributes.position;
+          const array = positionAttribute.array;
+          const cameraDirection = new THREE.Vector3();
+          const worldUp = new THREE.Vector3(0, 1, 0);
+          camera.getWorldDirection(cameraDirection);
+
+          const verticesPerFiber = POINTS_PER_STRAND * 2;
+
+          for (let fiber = 0; fiber < this.fibersPerGuide; fiber++) {
+            const fiberInfo = this.fiberData[fiber];
+            const vertexOffset = fiber * verticesPerFiber;
+
+            for (let i = 0; i < this.points.length; i++) {
+              const point = this.points[i].position;
+              const previous =
+                this.points[Math.max(0, i - 1)].position;
+              const next =
+                this.points[Math.min(this.points.length - 1, i + 1)].position;
+
+              const tangent = next.clone().sub(previous).normalize();
+
+              let cameraSide = new THREE.Vector3().crossVectors(
+                tangent,
+                cameraDirection
+              );
+
+              if (cameraSide.lengthSq() < 0.0001) {
+                cameraSide.set(1, 0, 0);
+              } else {
+                cameraSide.normalize();
+              }
+
+              let localUp = new THREE.Vector3().crossVectors(
+                cameraSide,
+                tangent
+              );
+
+              if (localUp.lengthSq() < 0.0001) {
+                localUp.copy(worldUp);
+              } else {
+                localUp.normalize();
+              }
+
+              const t = i / (this.points.length - 1);
+              const taper = Math.max(0.025, 1 - Math.pow(t, 1.55));
+
+              // Spread individual fibers around the shared physics guide.
+              // The spread grows toward the tips so the hair looks fuller.
+              // All visible fibers begin at the raycast scalp root, then fan
+              // out gradually. This removes the floating ring at each root.
+              const spread = fiberInfo.radius * t * 2.0;
+              const curl =
+                Math.sin(t * 8.5 + fiberInfo.phase) *
+                0.012 * t * t;
+
+              const fiberCenter = point
+                .clone()
+                .addScaledVector(
+                  cameraSide,
+                  Math.cos(fiberInfo.angle) * spread
+                )
+                .addScaledVector(
+                  localUp,
+                  Math.sin(fiberInfo.angle) * spread + curl
+                )
+                .lerp(
+                  previous,
+                  Math.max(0, 1 - fiberInfo.lengthScale) * t * 0.7
+                );
+
+              const fiberWidth =
+                this.width * 0.19 * params.hairThickness * taper *
+                (0.72 + (fiber % 4) * 0.08);
+
+              const left = fiberCenter
+                .clone()
+                .addScaledVector(cameraSide, fiberWidth);
+              const right = fiberCenter
+                .clone()
+                .addScaledVector(cameraSide, -fiberWidth);
+
+              const vertexIndex = vertexOffset + i * 2;
+              const index = vertexIndex * 3;
+
+              array[index] = left.x;
+              array[index + 1] = left.y;
+              array[index + 2] = left.z;
+              array[index + 3] = right.x;
+              array[index + 4] = right.y;
+              array[index + 5] = right.z;
+            }
+          }
+
+          positionAttribute.needsUpdate = true;
+          this.geometry.computeVertexNormals();
+        }
+      }
+
+      const strands = [];
+      const statusElement = document.getElementById("status");
+
+      function disposeHair() {
+        while (strands.length) {
+          const strand = strands.pop();
+          scene.remove(strand.mesh);
+          strand.geometry.dispose();
+        }
+      }
+
+      function scalpPoint(index, count) {
+        // Even Fibonacci distribution over the full top cap of the head.
+        // Unlike folding Z to one side, this keeps roots evenly spaced over
+        // the model's yellow scalp area.
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        const t = (index + 0.5) / Math.max(1, count);
+        const yBand = 1 - t * 1.18;
+        const radial = Math.sqrt(Math.max(0, 1 - yBand * yBand));
+        const angle = index * goldenAngle;
+
+        const x = Math.cos(angle) * radial;
+        const z = Math.sin(angle) * radial;
+
+        // Raise only the front-facing roots. Back and side coverage remains
+        // stable while the forehead hairline retreats toward the crown.
+        const frontWeight = radial > 0.0001
+          ? Math.max(0, z / radial)
+          : 0;
+        const adjustedYBand = yBand +
+          params.hairlineHeight * frontWeight * (1 - yBand) * 0.75;
+
+        // Normalize the direction first, then scale it by the head ellipsoid.
+        // This guarantees every pinned root sits directly on the scalp shell.
+        const scalpDirection = new THREE.Vector3(
+          x,
+          adjustedYBand,
+          z
+        ).normalize();
+        const ellipsoidRoot = bodyFit.headCenter.clone().add(
+          new THREE.Vector3(
+            scalpDirection.x * bodyFit.headRadius.x,
+            scalpDirection.y * bodyFit.headRadius.y,
+            scalpDirection.z * bodyFit.headRadius.z
+          )
+        );
+
+        if (characterModel) {
+          // Cast from outside toward the head. The nearest upper-body hit is
+          // the actual FBX scalp, so roots follow the model instead of an
+          // approximate sphere.
+          const rayOrigin = bodyFit.headCenter.clone().add(
+            ellipsoidRoot.clone().sub(bodyFit.headCenter).multiplyScalar(1.8)
+          );
+          const rayDirection = bodyFit.headCenter
+            .clone()
+            .sub(rayOrigin)
+            .normalize();
+
+          scalpRaycaster.set(rayOrigin, rayDirection);
+          const hits = scalpRaycaster.intersectObject(characterModel, true);
+          const scalpHit = hits.find((hit) =>
+            hit.point.y >
+              bodyFit.headCenter.y - bodyFit.headRadius.y * 0.9
+          );
+
+          if (scalpHit) {
+            const outward = scalpHit.point
+              .clone()
+              .sub(bodyFit.headCenter)
+              .normalize();
+            return scalpHit.point.clone().addScaledVector(outward, 0.028);
+          }
+        }
+
+        return ellipsoidRoot.addScaledVector(scalpDirection, 0.028);
+      }
+
+      function createHair(guideCount, fibersPerGuide) {
+        disposeHair();
+
+        currentGuideCount = guideCount;
+        currentFibersPerGuide = fibersPerGuide;
+
+        for (let i = 0; i < guideCount; i++) {
+          const root = scalpPoint(i, guideCount);
+
+          const outward = root
+            .clone()
+            .sub(bodyFit.headCenter)
+            .normalize();
+
+          const densityScale = THREE.MathUtils.clamp(
+            Math.sqrt(36 / guideCount),
+            0.22,
+            1
+          );
+
+          const width =
+            (0.052 + 0.014 * Math.sin(i * 1.7)) * densityScale;
+
+          const material =
+            i % 7 === 0 ? hairHighlightMaterial : hairMaterial;
+
+          strands.push(
+            new HairStrand(
+              root,
+              outward,
+              Math.max(0.008, width),
+              i * 0.137,
+              material,
+              fibersPerGuide
+            )
+          );
+        }
+
+        accumulator = 0;
+        updateStatus();
+      }
+
+      let displayedFps = 0;
+
+      // Physics timing variables must exist before createHair() runs,
+      // because rebuilding the hair resets the accumulator.
+      let accumulator = 0;
+      let lastTime = performance.now() / 1000;
+      let fpsFrames = 0;
+      let fpsTimer = lastTime;
+
+      function updateStatus() {
+        const visibleRibbons = currentGuideCount * currentFibersPerGuide;
+        statusElement.textContent =
+          visibleRibbons.toLocaleString() +
+          " visible ribbons · " +
+          currentGuideCount.toLocaleString() +
+          " physics guides · " +
+          (displayedFps ? displayedFps + " FPS" : "-- FPS");
+      }
+
+      function loadCharacter() {
+        statusElement.textContent = "Loading FBX character…";
+
+        const loader = new THREE.FBXLoader();
+        loader.setResourcePath("fbx/");
+        loader.load(
+          "fbx/Meshy_AI_Big_Headed_Champion_0716051217_texture.fbx",
+          (model) => {
+            const initialBox = new THREE.Box3().setFromObject(model);
+            const initialSize = initialBox.getSize(new THREE.Vector3());
+            const targetHeight = 3.75;
+            const scale = targetHeight / Math.max(initialSize.y, 0.001);
+            model.scale.setScalar(scale);
+            model.updateMatrixWorld(true);
+
+            // Place the model on the ground and center it horizontally.
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            model.position.x -= center.x;
+            model.position.z -= center.z;
+            model.position.y -= box.min.y;
+            model.updateMatrixWorld(true);
+
+            model.traverse((child) => {
+              if (!child.isMesh) return;
+              child.castShadow = false;
+              child.receiveShadow = false;
+
+              const toBasicMaterial = (source) => {
+                if (source && source.map) {
+                  source.map.encoding = THREE.sRGBEncoding;
+                  source.map.needsUpdate = true;
+                }
+
+                const basic = new THREE.MeshBasicMaterial({
+                  color: source && source.color
+                    ? source.color.clone()
+                    : new THREE.Color(0xffffff),
+                  map: source ? source.map : null,
+                  alphaMap: source ? source.alphaMap : null,
+                  transparent: source ? source.transparent : false,
+                  opacity: source && source.opacity !== undefined
+                    ? source.opacity
+                    : 1,
+                  side: source ? source.side : THREE.FrontSide,
+                  skinning: child.isSkinnedMesh,
+                  morphTargets: Boolean(child.morphTargetInfluences),
+                  vertexColors: source ? source.vertexColors : false
+                });
+
+                if (source) source.dispose();
+                return basic;
+              };
+
+              child.material = Array.isArray(child.material)
+                ? child.material.map(toBasicMaterial)
+                : toBasicMaterial(child.material);
+            });
+
+            character.add(model);
+            characterModel = model;
+
+            const fittedBox = new THREE.Box3().setFromObject(model);
+            const size = fittedBox.getSize(new THREE.Vector3());
+            const fittedCenter = fittedBox.getCenter(new THREE.Vector3());
+
+            // The supplied character has an intentionally large head. These
+            // proportions put the scalp at the top of the imported geometry.
+            bodyFit.headCenter.set(
+              fittedCenter.x,
+              fittedBox.min.y + size.y * 0.80,
+              fittedCenter.z
+            );
+            bodyFit.headRadius.set(
+              Math.min(size.x * 0.31, size.y * 0.24),
+              size.y * 0.205,
+              Math.min(size.z * 0.42, size.y * 0.23)
+            );
+            bodyFit.shoulderCenter.set(
+              fittedCenter.x,
+              fittedBox.min.y + size.y * 0.54,
+              fittedCenter.z
+            );
+            bodyFit.shoulderRadius.set(
+              size.x * 0.46,
+              size.y * 0.12,
+              size.z * 0.42
+            );
+            bodyFit.torsoCenter.set(
+              fittedCenter.x,
+              fittedBox.min.y + size.y * 0.35,
+              fittedCenter.z
+            );
+            bodyFit.torsoRadius.set(
+              size.x * 0.38,
+              size.y * 0.29,
+              size.z * 0.34
+            );
+
+            controls.target.set(
+              bodyFit.headCenter.x,
+              bodyFit.headCenter.y - bodyFit.headRadius.y * 0.35,
+              bodyFit.headCenter.z
+            );
+            windArrow.position.set(
+              bodyFit.headCenter.x,
+              bodyFit.headCenter.y + bodyFit.headRadius.y * 1.85,
+              bodyFit.headCenter.z + bodyFit.headRadius.z * 2.2
+            );
+            statusElement.textContent = "Building head collision…";
+            buildHeadCollisionMap(model);
+            createHair(currentGuideCount, currentFibersPerGuide);
+          },
+          undefined,
+          (error) => {
+            console.error("Could not load the FBX character:", error);
+            statusElement.textContent = "FBX failed to load — check console";
+          }
+        );
+      }
+
+      loadCharacter();
+
+      function physicsStep(dt, time) {
+        for (const strand of strands) {
+          strand.integrate(dt, time);
+        }
+
+        for (let iteration = 0; iteration < CONSTRAINT_ITERATIONS; iteration++) {
+          for (const strand of strands) {
+            strand.satisfyConstraints();
+          }
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const now = performance.now() / 1000;
+        let frameTime = now - lastTime;
+        lastTime = now;
+        frameTime = Math.min(frameTime, 0.05);
+        accumulator += frameTime;
+
+        let substeps = 0;
+        while (accumulator >= FIXED_DT && substeps < MAX_SUBSTEPS) {
+          physicsStep(FIXED_DT, now);
+          accumulator -= FIXED_DT;
+          substeps++;
+        }
+
+        for (const strand of strands) {
+          strand.updateGeometry();
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+
+        fpsFrames++;
+        if (now - fpsTimer >= 0.5) {
+          displayedFps = Math.round(fpsFrames / (now - fpsTimer));
+          fpsFrames = 0;
+          fpsTimer = now;
+          updateStatus();
+        }
+      }
+
+      animate();
+
+      const controlsMap = [
+        ["wind", "windValue", "windStrength", 1],
+        ["gust", "gustValue", "gust", 1],
+        ["turbulence", "turbulenceValue", "turbulence", 1],
+        ["stiffness", "stiffnessValue", "stiffness", 2],
+        ["damping", "dampingValue", "damping", 3],
+        ["hairThickness", "hairThicknessValue", "hairThickness", 2]
+      ];
+
+      controlsMap.forEach(([inputId, outputId, key, digits]) => {
+        const input = document.getElementById(inputId);
+        const output = document.getElementById(outputId);
+
+        input.addEventListener("input", () => {
+          params[key] = Number(input.value);
+          output.textContent = params[key].toFixed(digits);
+        });
+      });
+
+      const windAngleInput = document.getElementById("windAngle");
+      const windAngleOutput = document.getElementById("windAngleValue");
+      const windVerticalAngleInput = document.getElementById(
+        "windVerticalAngle"
+      );
+      const windVerticalAngleOutput = document.getElementById(
+        "windVerticalAngleValue"
+      );
+
+      function updateWindArrowDirection() {
+        const worldAngle = THREE.MathUtils.degToRad(-90 + params.windAngle);
+        const verticalAngle = THREE.MathUtils.degToRad(
+          params.windVerticalAngle
+        );
+        windArrow.setDirection(
+          new THREE.Vector3(
+            Math.cos(worldAngle) * Math.cos(verticalAngle),
+            Math.sin(verticalAngle),
+            Math.sin(worldAngle) * Math.cos(verticalAngle)
+          ).normalize()
+        );
+      }
+
+      function setWindAngle(angle) {
+        params.windAngle = THREE.MathUtils.clamp(Math.round(angle), -45, 45);
+        windAngleInput.value = params.windAngle;
+        windAngleOutput.textContent = params.windAngle + "°";
+        updateWindArrowDirection();
+      }
+
+      windAngleInput.addEventListener("input", () => {
+        setWindAngle(Number(windAngleInput.value));
+      });
+
+      windVerticalAngleInput.addEventListener("input", () => {
+        params.windVerticalAngle = THREE.MathUtils.clamp(
+          Math.round(Number(windVerticalAngleInput.value)),
+          -30,
+          30
+        );
+        windVerticalAngleOutput.textContent =
+          params.windVerticalAngle + "°";
+        updateWindArrowDirection();
+      });
+
+      const hairLengthInput = document.getElementById("hairLength");
+      const hairLengthOutput = document.getElementById("hairLengthValue");
+
+      hairLengthInput.addEventListener("input", () => {
+        params.hairLength = Number(hairLengthInput.value);
+        hairLengthOutput.textContent = params.hairLength.toFixed(2);
+        for (const strand of strands) strand.reset();
+      });
+
+      const rootLiftInput = document.getElementById("rootLift");
+      const rootLiftOutput = document.getElementById("rootLiftValue");
+
+      rootLiftInput.addEventListener("input", () => {
+        params.rootLift = Number(rootLiftInput.value);
+        rootLiftOutput.textContent = params.rootLift.toFixed(1);
+        for (const strand of strands) strand.reset();
+      });
+
+      const hairlineHeightInput = document.getElementById("hairlineHeight");
+      const hairlineHeightOutput = document.getElementById(
+        "hairlineHeightValue"
+      );
+
+      hairlineHeightInput.addEventListener("input", () => {
+        params.hairlineHeight = Number(hairlineHeightInput.value);
+        hairlineHeightOutput.textContent = params.hairlineHeight.toFixed(2);
+      });
+
+      hairlineHeightInput.addEventListener("change", () => {
+        createHair(currentGuideCount, currentFibersPerGuide);
+      });
+
+      const hairColorInput = document.getElementById("hairColor");
+      const hairColorOutput = document.getElementById("hairColorValue");
+
+      hairColorInput.addEventListener("input", () => {
+        const selectedColor = new THREE.Color(hairColorInput.value);
+        hairMaterial.color.copy(selectedColor);
+        hairHighlightMaterial.color
+          .copy(selectedColor)
+          .offsetHSL(0, -0.08, 0.22);
+        hairColorOutput.textContent = hairColorInput.value.toUpperCase();
+      });
+
+      const guideCountInput = document.getElementById("guideCount");
+      const guideCountOutput = document.getElementById("guideCountValue");
+      const fiberCountInput = document.getElementById("fiberCount");
+      const fiberCountOutput = document.getElementById("fiberCountValue");
+      let hairDensityRebuildTimer = null;
+
+      function scheduleHairDensityRebuild() {
+        clearTimeout(hairDensityRebuildTimer);
+        hairDensityRebuildTimer = setTimeout(() => {
+          createHair(
+            Number(guideCountInput.value),
+            Number(fiberCountInput.value)
+          );
+        }, 90);
+      }
+
+      guideCountInput.addEventListener("input", () => {
+        guideCountOutput.textContent = Number(guideCountInput.value).toLocaleString();
+        scheduleHairDensityRebuild();
+      });
+
+      fiberCountInput.addEventListener("input", () => {
+        fiberCountOutput.textContent = fiberCountInput.value;
+        scheduleHairDensityRebuild();
+      });
+
+      document
+        .getElementById("resetButton")
+        .addEventListener("click", () => {
+          for (const strand of strands) {
+            strand.reset();
+          }
+        });
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      });
+    })();
+  </script>
+</body>
+</html>
