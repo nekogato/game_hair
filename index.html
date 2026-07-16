@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Erling Haaland Simulator</title>
+  <title>Erling Haaland Hair Simulator</title>
 
   <style>
     :root {
@@ -150,7 +150,7 @@
 
 <body>
   <div id="ui">
-    <h1>Erling Haaland Simulator</h1>
+    <h1>Erling Haaland Hair Simulator</h1>
     <p>
       Drag to orbit. Scroll to zoom. The hair uses Verlet integration,
       position constraints, bending stiffness and simple head/shoulder collision.
@@ -158,14 +158,14 @@
 
     <div class="control">
       <label for="wind">Wind strength</label>
-      <input id="wind" type="range" min="0" max="8" step="0.1" value="3.3" />
-      <output id="windValue">3.3</output>
+      <input id="wind" type="range" min="0" max="20" step="0.1" value="8" />
+      <output id="windValue">8.0</output>
     </div>
 
     <div class="control">
       <label for="windAngle">Wind angle X</label>
-      <input id="windAngle" type="range" min="-45" max="45" step="1" value="0" />
-      <output id="windAngleValue">0°</output>
+      <input id="windAngle" type="range" min="-45" max="45" step="1" value="-45" />
+      <output id="windAngleValue">-45°</output>
     </div>
 
     <div class="control">
@@ -182,8 +182,8 @@
 
     <div class="control">
       <label for="turbulence">Turbulence</label>
-      <input id="turbulence" type="range" min="0" max="40" step="0.1" value="5.8" />
-      <output id="turbulenceValue">5.8</output>
+      <input id="turbulence" type="range" min="0" max="40" step="0.1" value="40" />
+      <output id="turbulenceValue">40.0</output>
     </div>
 
     <div class="control">
@@ -218,8 +218,8 @@
 
     <div class="control">
       <label for="hairLength">Hair length</label>
-      <input id="hairLength" type="range" min="0.2" max="2.5" step="0.05" value="0.85" />
-      <output id="hairLengthValue">0.85</output>
+      <input id="hairLength" type="range" min="0.2" max="2.5" step="0.05" value="1.55" />
+      <output id="hairLengthValue">1.55</output>
     </div>
 
     <div class="control">
@@ -339,7 +339,7 @@
         0.1,
         100
       );
-      camera.position.set(4.8, 3.2, 7.2);
+      camera.position.set(0, 3.2, 10.2);
 
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -413,7 +413,7 @@
       // World-space wind direction indicator. It begins in front of the
       // character and points toward the back of the head.
       const windArrow = new THREE.ArrowHelper(
-        new THREE.Vector3(0, 0, -1),
+        new THREE.Vector3(-1, 0, -1).normalize(),
         new THREE.Vector3(0, 4.65, 1.55),
         2.2,
         0x73d5ff,
@@ -542,16 +542,16 @@
       });
 
       const params = {
-        windStrength: 3.3,
+        windStrength: 8,
         gust: 0,
-        turbulence: 5.8,
+        turbulence: 40,
         stiffness: 0.28,
         damping: 0.865,
         hairThickness: 5.45,
-        hairLength: 0.85,
+        hairLength: 1.55,
         rootLift: 0.5,
         hairlineHeight: 0.22,
-        windAngle: 0,
+        windAngle: -45,
         windVerticalAngle: 0
       };
 
